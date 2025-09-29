@@ -1,6 +1,7 @@
 *.tar
 *.tar.gz
 *.zip
+.venv
 venv*/
 envs/
 slurm_logs/
@@ -51,3 +52,16 @@ _build/
 
 
 output/
+
+# Build artifacts
+*.egg-info/
+uv.lock
+
+# Deployment generated files
+docker/deploy/service-deployed.yaml
+
+# Test files
+docker/deploy/test.txt
+
+# Claude Code
+.claude/
