@@ -1,0 +1,8 @@
+{
+  "comment": "MinerU Cloud Run Configuration - FUSE Mount 방식 (/gcs)",
+  "models-dir": {
+    "pipeline": "/gcs/pipeline",
+    "vlm": "/gcs/vlm"
+  },
+  "config_version": "1.3.0"
+}
