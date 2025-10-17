@@ -1,0 +1,45 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: mineru-api
+  annotations:
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/execution-environment: gen2
+        run.googleapis.com/gpu: nvidia-l4
+        run.googleapis.com/gpu-count: "1"
+        run.googleapis.com/gpu-zonal-redundancy-disabled: "true"
+        run.googleapis.com/cpu-throttling: "false"
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "3"
+    spec:
+      containerConcurrency: 1
+      timeoutSeconds: 600
+      containers:
+      - image: PLACEHOLDER_IMAGE
+        resources:
+          limits:
+            cpu: "4"
+            memory: 16Gi
+            nvidia.com/gpu: "1"
+        env:
+        - name: BUCKET_NAME
+          value: YOUR_GCS_BUCKET_NAME
+        - name: GCS_MOUNT_PATH
+          value: /gcs
+        - name: MINERU_MODEL_SOURCE
+          value: local
+        - name: MINERU_TOOLS_CONFIG_JSON
+          value: /app/mineru.json
+        volumeMounts:
+        - name: gcs-models
+          mountPath: /gcs
+      volumes:
+      - name: gcs-models
+        csi:
+          driver: gcsfuse.run.googleapis.com
+          volumeAttributes:
+            bucketName: YOUR_GCS_BUCKET_NAME
