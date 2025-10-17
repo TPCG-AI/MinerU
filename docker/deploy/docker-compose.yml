@@ -1,0 +1,76 @@
+# ====================================
+# MinerU Cloud Run 로컬 테스트용
+# GCS 버킷 시뮬레이션
+# 사용법: docker compose up
+# ====================================
+
+services:
+  mineru-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mineru-cloudrun:latest
+    container_name: mineru-cloudrun-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # 모델 소스를 로컬로 지정
+      MINERU_MODEL_SOURCE: local
+      MINERU_TOOLS_CONFIG_JSON: /app/mineru.json
+      PORT: 8080
+    volumes:
+      # 로컬 테스트: GCS 버킷 대신 로컬 모델 디렉토리 마운트
+      # Windows 경로 -> 컨테이너 /gcs 경로로 마운트
+      - C:/Users/TPCG_NEW/.cache/huggingface/hub:/gcs/mineru-models:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]
+              capabilities: [gpu]
+    # GPU 메모리 설정
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    ipc: host
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Gradio WebUI (선택사항)
+  mineru-gradio:
+    build:
+      context: .
+      dockerfile: Dockerfile.cloudrun
+    image: mineru-cloudrun:latest
+    container_name: mineru-cloudrun-gradio
+    restart: unless-stopped
+    ports:
+      - "7860:7860"
+    environment:
+      MINERU_MODEL_SOURCE: local
+      MINERU_TOOLS_CONFIG_JSON: /app/mineru.json
+      PORT: 7860
+    volumes:
+      - C:/Users/TPCG_NEW/.cache/huggingface/hub:/gcs/mineru-models:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]
+              capabilities: [gpu]
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    ipc: host
+    # Gradio용 entrypoint 오버라이드
+    entrypoint:
+      - /bin/bash
+      - -c
+      - exec mineru-gradio --server-name 0.0.0.0 --server-port 7860 --enable-vllm-engine true
