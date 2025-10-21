@@ -16,10 +16,15 @@ services:
       - "8080:8080"
     environment:
       MINERU_MODEL_SOURCE: local
-      MINERU_TOOLS_CONFIG_JSON: /app/mineru.json
       PORT: 8080
-      BUCKET_NAME: cloud-bucket-kangmin-test-20251015
-      GCS_MOUNT_PATH: /gcs
+    # Cloud Run용 entrypoint.sh 무시하고 직접 실행
+    command: >
+      mineru-api
+      --host 0.0.0.0
+      --port 8080
+      --backend vlm-vllm-async-engine
+      --model /gcs/vlm
+      --gpu-memory-utilization 0.5
     volumes:
       # 로컬 소스 코드 실시간 반영 (editable mode)
       - ../../mineru:/workspace/mineru/mineru:rw
