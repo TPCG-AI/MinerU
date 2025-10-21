@@ -129,8 +129,9 @@ async def parse_pdf(
 
         # 调用异步处理函数
         # Filter out parameters that are already explicitly passed to avoid duplicates
+        # Also filter out API-specific parameters that shouldn't be passed to backend
         filtered_config = {k: v for k, v in config.items() if k not in [
-            'backend', 'parse_method', 'formula_enable', 'table_enable', 'server_url'
+            'backend', 'parse_method', 'formula_enable', 'table_enable', 'server_url', 'url'
         ]}
 
         await aio_do_parse(
