@@ -128,6 +128,11 @@ async def parse_pdf(
             actual_lang_list = [actual_lang_list[0] if actual_lang_list else "ch"] * len(pdf_file_names)
 
         # 调用异步处理函数
+        # Filter out parameters that are already explicitly passed to avoid duplicates
+        filtered_config = {k: v for k, v in config.items() if k not in [
+            'backend', 'parse_method', 'formula_enable', 'table_enable', 'server_url'
+        ]}
+
         await aio_do_parse(
             output_dir=unique_dir,
             pdf_file_names=pdf_file_names,
@@ -147,7 +152,7 @@ async def parse_pdf(
             f_dump_content_list=return_content_list,
             start_page_id=start_page_id,
             end_page_id=end_page_id,
-            **config
+            **filtered_config
         )
 
         # 根据 response_format_zip 决定返回类型
