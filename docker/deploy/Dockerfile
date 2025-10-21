@@ -22,14 +22,16 @@ RUN apt-get update && \
 
 # 3. Python 패키지 설치
 # - editable mode로 설치하여 volume mount된 소스 코드 변경사항 즉시 반영
-COPY . /workspace/mineru
+# pyproject.toml과 소스 코드 복사
+COPY pyproject.toml /workspace/mineru/pyproject.toml
+COPY mineru /workspace/mineru/mineru
 WORKDIR /workspace/mineru
 RUN python3 -m pip install -e '.[core]' --break-system-packages --no-cache-dir
 
 # 4. 애플리케이션 디렉토리 설정 및 파일 복사
 WORKDIR /app
-COPY mineru-config.json /app/mineru.json
-COPY entrypoint.sh /app/entrypoint.sh
+COPY docker/deploy/mineru-config.json /app/mineru.json
+COPY docker/deploy/entrypoint.sh /app/entrypoint.sh
 
 # 5. 실행 권한 부여
 RUN chmod +x /app/entrypoint.sh
