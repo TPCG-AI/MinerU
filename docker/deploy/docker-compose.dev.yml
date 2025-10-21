@@ -18,13 +18,19 @@ services:
       MINERU_MODEL_SOURCE: local
       PORT: 8080
     # Cloud Run용 entrypoint.sh 무시하고 직접 실행
-    command: >
-      mineru-api
-      --host 0.0.0.0
-      --port 8080
-      --backend vlm-vllm-async-engine
-      --model /gcs/vlm
-      --gpu-memory-utilization 0.5
+    entrypoint: []
+    command:
+      - mineru-api
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8080"
+      - --backend
+      - vlm-vllm-async-engine
+      - --model
+      - /gcs/vlm
+      - --gpu-memory-utilization
+      - "0.5"
     volumes:
       # 로컬 소스 코드 실시간 반영 (editable mode)
       - ../../mineru:/workspace/mineru/mineru:rw
