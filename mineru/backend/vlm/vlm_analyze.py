@@ -18,6 +18,60 @@ from mineru_vl_utils import MinerUClient
 from packaging import version
 
 
+def get_language_aware_prompts(lang: str = "en") -> dict[str, str]:
+    """Generate language-aware prompts based on the specified language."""
+    # Map common language codes to full names
+    lang_names = {
+        "en": "English",
+        "ch": "Chinese",
+        "korean": "Korean",
+        "japan": "Japanese",
+        "ko": "Korean",
+        "ja": "Japanese",
+        "zh": "Chinese",
+        "fr": "French",
+        "de": "German",
+        "es": "Spanish",
+        "it": "Italian",
+        "pt": "Portuguese",
+        "ru": "Russian",
+        "ar": "Arabic",
+    }
+
+    lang_name = lang_names.get(lang.lower(), "English")
+
+    return {
+        "table": f"\nTable Recognition (Output in {lang_name}):",
+        "equation": f"\nFormula Recognition:",
+        "[default]": f"\nText Recognition (Output in {lang_name}):",
+        "[layout]": f"\nLayout Detection:",
+    }
+
+
+def get_language_aware_system_prompt(lang: str = "en") -> str:
+    """Generate language-aware system prompt."""
+    lang_names = {
+        "en": "English",
+        "ch": "Chinese",
+        "korean": "Korean",
+        "japan": "Japanese",
+        "ko": "Korean",
+        "ja": "Japanese",
+        "zh": "Chinese",
+        "fr": "French",
+        "de": "German",
+        "es": "Spanish",
+        "it": "Italian",
+        "pt": "Portuguese",
+        "ru": "Russian",
+        "ar": "Arabic",
+    }
+
+    lang_name = lang_names.get(lang.lower(), "English")
+
+    return f"You are a helpful assistant specialized in document analysis. When recognizing text, output in {lang_name} language."
+
+
 class ModelSingleton:
     _instance = None
     _models = {}
@@ -32,9 +86,11 @@ class ModelSingleton:
         backend: str,
         model_path: str | None,
         server_url: str | None,
+        lang: str = "en",
         **kwargs,
     ) -> MinerUClient:
-        key = (backend, model_path, server_url)
+        # Include lang in cache key to create separate model instances per language
+        key = (backend, model_path, server_url, lang)
         if key not in self._models:
             start_time = time.time()
             model = None
@@ -115,6 +171,11 @@ class ModelSingleton:
                         kwargs["logits_processors"] = [MinerULogitsProcessor]
                     # 使用kwargs为 vllm初始化参数
                     vllm_async_llm = AsyncLLM.from_engine_args(AsyncEngineArgs(**kwargs))
+
+            # Generate language-aware prompts and system prompt
+            custom_prompts = get_language_aware_prompts(lang)
+            custom_system_prompt = get_language_aware_system_prompt(lang)
+
             self._models[key] = MinerUClient(
                 backend=backend,
                 model=model,
@@ -123,9 +184,11 @@ class ModelSingleton:
                 vllm_async_llm=vllm_async_llm,
                 server_url=server_url,
                 batch_size=batch_size,
+                prompts=custom_prompts,
+                system_prompt=custom_system_prompt,
             )
             elapsed = round(time.time() - start_time, 2)
-            logger.info(f"get {backend} predictor cost: {elapsed}s")
+            logger.info(f"get {backend} predictor cost: {elapsed}s, lang: {lang}")
         return self._models[key]
 
 
@@ -140,7 +203,7 @@ def doc_analyze(
     **kwargs,
 ):
     if predictor is None:
-        predictor = ModelSingleton().get_model(backend, model_path, server_url, **kwargs)
+        predictor = ModelSingleton().get_model(backend, model_path, server_url, lang=lang, **kwargs)
 
     # load_images_start = time.time()
     images_list, pdf_doc = load_images_from_pdf(pdf_bytes, image_type=ImageType.PIL)
@@ -168,7 +231,7 @@ async def aio_doc_analyze(
     **kwargs,
 ):
     if predictor is None:
-        predictor = ModelSingleton().get_model(backend, model_path, server_url, **kwargs)
+        predictor = ModelSingleton().get_model(backend, model_path, server_url, lang=lang, **kwargs)
 
     # load_images_start = time.time()
     images_list, pdf_doc = load_images_from_pdf(pdf_bytes, image_type=ImageType.PIL)
