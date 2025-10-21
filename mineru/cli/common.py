@@ -214,6 +214,7 @@ async def _async_process_vlm(
         output_dir,
         pdf_file_names,
         pdf_bytes_list,
+        p_lang_list,
         backend,
         f_draw_layout_bbox,
         f_draw_span_bbox,
@@ -234,11 +235,12 @@ async def _async_process_vlm(
 
     for idx, pdf_bytes in enumerate(pdf_bytes_list):
         pdf_file_name = pdf_file_names[idx]
+        _lang = p_lang_list[idx] if idx < len(p_lang_list) else p_lang_list[0]
         local_image_dir, local_md_dir = prepare_env(output_dir, pdf_file_name, parse_method)
         image_writer, md_writer = FileBasedDataWriter(local_image_dir), FileBasedDataWriter(local_md_dir)
 
         middle_json, infer_result = await aio_vlm_doc_analyze(
-            pdf_bytes, image_writer=image_writer, backend=backend, server_url=server_url, **kwargs,
+            pdf_bytes, image_writer=image_writer, backend=backend, server_url=server_url, lang=_lang, **kwargs,
         )
 
         pdf_info = middle_json["pdf_info"]
@@ -255,6 +257,7 @@ def _process_vlm(
         output_dir,
         pdf_file_names,
         pdf_bytes_list,
+        p_lang_list,
         backend,
         f_draw_layout_bbox,
         f_draw_span_bbox,
@@ -275,11 +278,12 @@ def _process_vlm(
 
     for idx, pdf_bytes in enumerate(pdf_bytes_list):
         pdf_file_name = pdf_file_names[idx]
+        _lang = p_lang_list[idx] if idx < len(p_lang_list) else p_lang_list[0]
         local_image_dir, local_md_dir = prepare_env(output_dir, pdf_file_name, parse_method)
         image_writer, md_writer = FileBasedDataWriter(local_image_dir), FileBasedDataWriter(local_md_dir)
 
         middle_json, infer_result = vlm_doc_analyze(
-            pdf_bytes, image_writer=image_writer, backend=backend, server_url=server_url, **kwargs,
+            pdf_bytes, image_writer=image_writer, backend=backend, server_url=server_url, lang=_lang, **kwargs,
         )
 
         pdf_info = middle_json["pdf_info"]
@@ -335,7 +339,7 @@ def do_parse(
         os.environ['MINERU_VLM_TABLE_ENABLE'] = str(table_enable)
 
         _process_vlm(
-            output_dir, pdf_file_names, pdf_bytes_list, backend,
+            output_dir, pdf_file_names, pdf_bytes_list, p_lang_list, backend,
             f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
             f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode,
             server_url, **kwargs,
@@ -386,7 +390,7 @@ async def aio_do_parse(
         os.environ['MINERU_VLM_TABLE_ENABLE'] = str(table_enable)
 
         await _async_process_vlm(
-            output_dir, pdf_file_names, pdf_bytes_list, backend,
+            output_dir, pdf_file_names, pdf_bytes_list, p_lang_list, backend,
             f_draw_layout_bbox, f_draw_span_bbox, f_dump_md, f_dump_middle_json,
             f_dump_model_output, f_dump_orig_pdf, f_dump_content_list, f_make_md_mode,
             server_url, **kwargs,

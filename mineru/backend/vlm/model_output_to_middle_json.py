@@ -29,7 +29,7 @@ if llm_aided_config:
                             "please execute `pip install mineru[core]` to install the required packages.")
 
 
-def blocks_to_page_info(page_blocks, image_dict, page, image_writer, page_index) -> dict:
+def blocks_to_page_info(page_blocks, image_dict, page, image_writer, page_index, lang='en') -> dict:
     """将blocks转换为页面信息"""
 
     scale = image_dict["scale"]
@@ -51,11 +51,13 @@ def blocks_to_page_info(page_blocks, image_dict, page, image_writer, page_index)
     # 如果有标题优化需求，则对title_blocks截图det
     if heading_level_import_success:
         atom_model_manager = AtomModelSingleton()
+        # Map language to OCR-compatible format
+        ocr_lang = lang if lang in ['ch', 'en', 'korean', 'japan'] else 'en'
         ocr_model = atom_model_manager.get_atom_model(
             atom_model_name='ocr',
             ocr_show_log=False,
             det_db_box_thresh=0.3,
-            lang='ch_lite'
+            lang=ocr_lang
         )
         for title_block in title_blocks:
             title_pil_img = get_crop_img(title_block['bbox'], page_pil_img, scale)
@@ -99,12 +101,12 @@ def blocks_to_page_info(page_blocks, image_dict, page, image_writer, page_index)
     return page_info
 
 
-def result_to_middle_json(model_output_blocks_list, images_list, pdf_doc, image_writer):
+def result_to_middle_json(model_output_blocks_list, images_list, pdf_doc, image_writer, lang='en'):
     middle_json = {"pdf_info": [], "_backend":"vlm", "_version_name": __version__}
     for index, page_blocks in enumerate(model_output_blocks_list):
         page = pdf_doc[index]
         image_dict = images_list[index]
-        page_info = blocks_to_page_info(page_blocks, image_dict, page, image_writer, index)
+        page_info = blocks_to_page_info(page_blocks, image_dict, page, image_writer, index, lang=lang)
         middle_json["pdf_info"].append(page_info)
 
     """表格跨页合并"""
