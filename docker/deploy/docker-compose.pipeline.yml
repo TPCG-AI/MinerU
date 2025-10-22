@@ -1,0 +1,59 @@
+# ====================================
+# MinerU Pipeline 전용 Docker Compose
+# GPU 가속 Pipeline 모드로 한국어 문서 처리
+# 사용법: docker compose -f docker-compose.pipeline.yml up
+# ====================================
+
+services:
+  mineru-pipeline:
+    build:
+      context: ../..
+      dockerfile: docker/deploy/Dockerfile
+    image: mineru-pipeline:latest
+    container_name: mineru-pipeline-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      MINERU_MODEL_SOURCE: local
+      PORT: 8080
+      # Pipeline 최적화 설정
+      MINERU_VIRTUAL_VRAM_SIZE: "24"
+      MINERU_MIN_BATCH_INFERENCE_SIZE: "384"
+      PYTHONUNBUFFERED: 1
+    entrypoint: []
+    command:
+      - mineru-api
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8080"
+      - --backend
+      - pipeline
+      # Pipeline 기본 설정
+      - --parse-method
+      - auto
+      - --formula-enable
+      - --table-enable
+    volumes:
+      # 로컬 소스 코드 실시간 반영
+      - ../../mineru:/workspace/mineru/mineru:rw
+      # GCS 버킷 마운트 (Pipeline 모델 경로)
+      - /gcs:/gcs:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]
+              capabilities: [gpu]
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    ipc: host
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
