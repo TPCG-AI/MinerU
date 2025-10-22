@@ -6,12 +6,14 @@ import asyncio
 import uvicorn
 import click
 import zipfile
+import time
 from pathlib import Path
 import glob
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Form, Request
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from starlette.background import BackgroundTask
+from starlette.middleware.base import BaseHTTPMiddleware
 from typing import List, Optional
 from loguru import logger
 from base64 import b64encode
@@ -21,7 +23,34 @@ from mineru.utils.cli_parser import arg_parse
 from mineru.utils.guess_suffix_or_lang import guess_suffix_by_path
 from mineru.version import __version__
 
+
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    """Middleware to log request and response times"""
+    async def dispatch(self, request: Request, call_next):
+        # Log request
+        start_time = time.time()
+        timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+
+        logger.info(f"📥 REQUEST  | {timestamp} | {request.method} {request.url.path} | Client: {request.client.host}")
+
+        # Process request
+        response = await call_next(request)
+
+        # Log response
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+
+        logger.info(
+            f"📤 RESPONSE | {timestamp} | {request.method} {request.url.path} | "
+            f"Status: {response.status_code} | Duration: {elapsed_time:.2f}s"
+        )
+
+        return response
+
+
 app = FastAPI()
+app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
@@ -60,6 +89,15 @@ def get_infer_result(file_suffix_identifier: str, pdf_name: str, parse_dir: str)
     return None
 
 
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return JSONResponse(
+        status_code=200,
+        content={"status": "healthy", "version": __version__}
+    )
+
+
 @app.post(path="/file_parse",)
 async def parse_pdf(
         files: List[UploadFile] = File(...),
@@ -79,9 +117,14 @@ async def parse_pdf(
         start_page_id: int = Form(0),
         end_page_id: int = Form(99999),
 ):
+    parse_start_time = time.time()
 
     # 获取命令行配置参数
     config = getattr(app.state, "config", {})
+
+    # Log request details
+    file_names = [f.filename for f in files]
+    logger.info(f"🔧 PARSE START | Files: {file_names} | Backend: {backend} | Lang: {lang_list}")
 
     try:
         # 创建唯一的输出目录
@@ -110,11 +153,15 @@ async def parse_pdf(
                     pdf_file_names.append(file_path.stem)
                     os.remove(temp_path)  # 删除临时文件
                 except Exception as e:
+                    parse_duration = time.time() - parse_start_time
+                    logger.error(f"❌ FILE LOAD FAILED | File: {file.filename} | Duration: {parse_duration:.2f}s | Error: {str(e)}")
                     return JSONResponse(
                         status_code=400,
                         content={"error": f"Failed to load file: {str(e)}"}
                     )
             else:
+                parse_duration = time.time() - parse_start_time
+                logger.error(f"❌ UNSUPPORTED FILE | File: {file.filename} | Type: {file_suffix} | Duration: {parse_duration:.2f}s")
                 return JSONResponse(
                     status_code=400,
                     content={"error": f"Unsupported file type: {file_suffix}"}
@@ -243,6 +290,9 @@ async def parse_pdf(
                             for image_path in image_paths
                         }
 
+            parse_duration = time.time() - parse_start_time
+            logger.info(f"✅ PARSE SUCCESS | Files: {file_names} | Backend: {backend} | Duration: {parse_duration:.2f}s")
+
             return JSONResponse(
                 status_code=200,
                 content={
@@ -252,7 +302,9 @@ async def parse_pdf(
                 }
             )
     except Exception as e:
+        parse_duration = time.time() - parse_start_time
         logger.exception(e)
+        logger.error(f"❌ PARSE FAILED | Files: {file_names} | Backend: {backend} | Duration: {parse_duration:.2f}s | Error: {str(e)}")
         return JSONResponse(
             status_code=500,
             content={"error": f"Failed to process file: {str(e)}"}
